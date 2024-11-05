@@ -16,12 +16,12 @@ Example:
 import argparse
 import pathlib
 import re
-
+import sys
 
 def convert_md_to_html(input_file, output_file):
-    '''
-    Converts markdown file to HTML file
-    '''
+    """
+    Converts markdown file to HTML file.
+    """
     # Read the contents of the input file
     with open(input_file, encoding='utf-8') as f:
         md_content = f.readlines()
@@ -29,15 +29,16 @@ def convert_md_to_html(input_file, output_file):
     html_content = []
     for line in md_content:
         # Check if the line is a heading
-        match = re.match(r'(#){1,6} (.*)', line)
+        match = re.match(r'^(#{1,6}) (.*)', line)
         if match:
             # Get the level of the heading
             h_level = len(match.group(1))
             # Get the content of the heading
-            h_content = match.group(2)
+            h_content = match.group(2).strip()  # Strip any extra whitespace
             # Append the HTML equivalent of the heading
             html_content.append(f'<h{h_level}>{h_content}</h{h_level}>\n')
         else:
+            # Append non-heading lines as-is
             html_content.append(line)
 
     # Write the HTML content to the output file
