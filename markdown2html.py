@@ -27,6 +27,8 @@ def convert_md_to_html(input_file, output_file):
         md_content = f.readlines()
 
     html_content = []
+    in_list = False  # Track whether we're currently in a list
+
     for line in md_content:
         # Check if the line is a heading
         match = re.match(r'^(#{1,6}) (.*)', line)
@@ -37,14 +39,30 @@ def convert_md_to_html(input_file, output_file):
             h_content = match.group(2).strip()  # Strip any extra whitespace
             # Append the HTML equivalent of the heading
             html_content.append(f'<h{h_level}>{h_content}</h{h_level}>\n')
+            continue
+        
+        # Check if the line is an unordered list item
+        if line.startswith('- '):
+            if not in_list:
+                html_content.append('<ul>\n')  # Start the unordered list
+                in_list = True
+            # Get the content of the list item
+            item_content = line[2:].strip()  # Remove '- ' and strip whitespace
+            html_content.append(f'  <li>{item_content}</li>\n')  # Append list item
         else:
-            # Append non-heading lines as-is
+            if in_list:
+                html_content.append('</ul>\n')  # End the unordered list
+                in_list = False
+            # Append non-list lines as-is
             html_content.append(line)
+
+    # Close any open list at the end of the file
+    if in_list:
+        html_content.append('</ul>\n')
 
     # Write the HTML content to the output file
     with open(output_file, 'w', encoding='utf-8') as f:
         f.writelines(html_content)
-
 
 if __name__ == '__main__':
     # Parse command-line arguments
