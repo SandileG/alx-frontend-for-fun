@@ -27,7 +27,8 @@ def convert_md_to_html(input_file, output_file):
         md_content = f.readlines()
 
     html_content = []
-    in_list = False  # Track whether we're currently in a list
+    in_unordered_list = False  # Track whether we're currently in an unordered list
+    in_ordered_list = False    # Track whether we're currently in an ordered list
 
     for line in md_content:
         # Check if the line is a heading
@@ -43,22 +44,40 @@ def convert_md_to_html(input_file, output_file):
         
         # Check if the line is an unordered list item
         if line.startswith('- '):
-            if not in_list:
+            if in_ordered_list:  # Close ordered list if we were in one
+                html_content.append('</ol>\n')
+                in_ordered_list = False
+            if not in_unordered_list:
                 html_content.append('<ul>\n')  # Start the unordered list
-                in_list = True
+                in_unordered_list = True
             # Get the content of the list item
             item_content = line[2:].strip()  # Remove '- ' and strip whitespace
             html_content.append(f'  <li>{item_content}</li>\n')  # Append list item
+        elif line.startswith('* '):
+            if in_unordered_list:  # Close unordered list if we were in one
+                html_content.append('</ul>\n')
+                in_unordered_list = False
+            if not in_ordered_list:
+                html_content.append('<ol>\n')  # Start the ordered list
+                in_ordered_list = True
+            # Get the content of the list item
+            item_content = line[2:].strip()  # Remove '* ' and strip whitespace
+            html_content.append(f'  <li>{item_content}</li>\n')  # Append list item
         else:
-            if in_list:
+            if in_unordered_list:
                 html_content.append('</ul>\n')  # End the unordered list
-                in_list = False
+                in_unordered_list = False
+            if in_ordered_list:
+                html_content.append('</ol>\n')  # End the ordered list
+                in_ordered_list = False
             # Append non-list lines as-is
             html_content.append(line)
 
-    # Close any open list at the end of the file
-    if in_list:
+    # Close any open lists at the end of the file
+    if in_unordered_list:
         html_content.append('</ul>\n')
+    if in_ordered_list:
+        html_content.append('</ol>\n')
 
     # Write the HTML content to the output file
     with open(output_file, 'w', encoding='utf-8') as f:
