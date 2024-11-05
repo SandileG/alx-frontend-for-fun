@@ -29,6 +29,7 @@ def convert_md_to_html(input_file, output_file):
     html_content = []
     in_unordered_list = False  # Track whether we're currently in an unordered list
     in_ordered_list = False    # Track whether we're currently in an ordered list
+    current_paragraph = []      # Store lines for the current paragraph
 
     for line in md_content:
         # Check if the line is a heading
@@ -53,7 +54,10 @@ def convert_md_to_html(input_file, output_file):
             # Get the content of the list item
             item_content = line[2:].strip()  # Remove '- ' and strip whitespace
             html_content.append(f'  <li>{item_content}</li>\n')  # Append list item
-        elif line.startswith('* '):
+            continue
+        
+        # Check if the line is an ordered list item
+        if line.startswith('* '):
             if in_unordered_list:  # Close unordered list if we were in one
                 html_content.append('</ul>\n')
                 in_unordered_list = False
@@ -63,15 +67,24 @@ def convert_md_to_html(input_file, output_file):
             # Get the content of the list item
             item_content = line[2:].strip()  # Remove '* ' and strip whitespace
             html_content.append(f'  <li>{item_content}</li>\n')  # Append list item
-        else:
-            if in_unordered_list:
-                html_content.append('</ul>\n')  # End the unordered list
-                in_unordered_list = False
-            if in_ordered_list:
-                html_content.append('</ol>\n')  # End the ordered list
-                in_ordered_list = False
-            # Append non-list lines as-is
-            html_content.append(line)
+            continue
+        
+        # Handle paragraphs: detect blank lines
+        if line.strip() == "":
+            if current_paragraph:
+                # If we have collected lines for a paragraph, flush it to HTML
+                paragraph = " ".join(current_paragraph).strip()
+                html_content.append(f'<p>{paragraph}</p>\n')
+                current_paragraph = []  # Reset for the next paragraph
+            continue
+        
+        # Handle normal text (paragraph lines)
+        current_paragraph.append(line.strip())  # Add line to current paragraph
+
+    # If there's any remaining paragraph content after the loop, add it
+    if current_paragraph:
+        paragraph = " ".join(current_paragraph).strip()
+        html_content.append(f'<p>{paragraph}</p>\n')
 
     # Close any open lists at the end of the file
     if in_unordered_list:
