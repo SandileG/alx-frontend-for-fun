@@ -18,6 +18,7 @@ import pathlib
 import re
 import sys
 
+
 def convert_md_to_html(input_file, output_file):
     """
     Converts markdown file to HTML file.
@@ -27,82 +28,69 @@ def convert_md_to_html(input_file, output_file):
         md_content = f.readlines()
 
     html_content = []
-    in_unordered_list = False
-    in_ordered_list = False
-    current_paragraph = []
-
+    in_list = False
     for line in md_content:
         # Check if the line is a heading
         match = re.match(r'^(#{1,6}) (.*)', line)
         if match:
-            if current_paragraph:
-                # If there's a paragraph before the heading, flush it
-                paragraph = " ".join(current_paragraph).strip()
-                html_content.append(f'<p>{paragraph}</p>\n')
-                current_paragraph = []
-
             h_level = len(match.group(1))
             h_content = match.group(2).strip()
             html_content.append(f'<h{h_level}>{h_content}</h{h_level}>\n')
             continue
         
-        # Check if the line is an unordered list item
-        if line.startswith('- '):
-            if current_paragraph:
-                # Flush the current paragraph before starting a list
-                paragraph = " ".join(current_paragraph).strip()
-                html_content.append(f'<p>{paragraph}</p>\n')
-                current_paragraph = []
-            if not in_unordered_list:
+        # Check for unordered list items
+        if re.match(r'^\- (.*)', line):
+            if not in_list:
                 html_content.append('<ul>\n')
-                in_unordered_list = True
-            item_content = line[2:].strip()
-            html_content.append(f'  <li>{item_content}</li>\n')
+                in_list = True
+            li_content = re.sub(r'^\- (.*)', r'<li>\1</li>', line).strip()
+            li_content = parse_bold_and_italic(li_content)
+            html_content.append(f'{li_content}\n')
             continue
         
-        # Check if the line is an ordered list item
-        if line.startswith('* '):
-            if current_paragraph:
-                # Flush the current paragraph before starting a list
-                paragraph = " ".join(current_paragraph).strip()
-                html_content.append(f'<p>{paragraph}</p>\n')
-                current_paragraph = []
-            if not in_ordered_list:
+        # Check for ordered list items
+        if re.match(r'^\* (.*)', line):
+            if not in_list:
                 html_content.append('<ol>\n')
-                in_ordered_list = True
-            item_content = line[2:].strip()
-            html_content.append(f'  <li>{item_content}</li>\n')
+                in_list = True
+            li_content = re.sub(r'^\* (.*)', r'<li>\1</li>', line).strip()
+            li_content = parse_bold_and_italic(li_content)
+            html_content.append(f'{li_content}\n')
             continue
-        
-        # Handle paragraphs: detect blank lines
-        if line.strip() == "":
-            if current_paragraph:
-                # If we have collected lines for a paragraph, flush it to HTML
-                paragraph = " ".join(current_paragraph).strip()
-                html_content.append(f'<p>{paragraph}</p>\n')
-                current_paragraph = []
-            continue
-        
-        # Handle normal text (paragraph lines)
-        if current_paragraph:
-            current_paragraph.append(line.strip())
+
+        # If we were in a list and encounter a non-list line, close the list
+        if in_list:
+            html_content.append('</ul>\n' if line.startswith('- ') else '</ol>\n')
+            in_list = False
+
+        # Handle paragraphs
+        if line.strip():
+            paragraph = f'<p>{line.strip()}</p>\n'
+            paragraph = parse_bold_and_italic(paragraph)
+            html_content.append(paragraph)
         else:
-            current_paragraph = [line.strip()]
+            # If it's an empty line, add a line break for separation
+            html_content.append('<br/>\n')
 
-    # Flush any remaining paragraph content
-    if current_paragraph:
-        paragraph = " ".join(current_paragraph).strip()
-        html_content.append(f'<p>{paragraph}</p>\n')
-
-    # Close any open lists at the end of the file
-    if in_unordered_list:
-        html_content.append('</ul>\n')
-    if in_ordered_list:
-        html_content.append('</ol>\n')
+    # If we end with an open list, close it
+    if in_list:
+        html_content.append('</ul>\n' if re.match(r'^\- ', md_content[-1]) else '</ol>\n')
 
     # Write the HTML content to the output file
     with open(output_file, 'w', encoding='utf-8') as f:
         f.writelines(html_content)
+
+
+def parse_bold_and_italic(text):
+    """
+    Converts Markdown bold and italic syntax to HTML.
+    """
+    # Convert bold syntax
+    text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
+    # Convert italic syntax
+    text = re.sub(r'__(.+?)__', r'<em>\1</em>', text)
+    return text
+
 
 if __name__ == '__main__':
     # Parse command-line arguments
