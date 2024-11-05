@@ -1,95 +1,112 @@
 #!/usr/bin/python3
 """
-This is a script to convert a Markdown file to HTML.
+This script converts a Markdown file to HTML format.
 
 Usage:
     ./markdown2html.py [input_file] [output_file]
 
 Arguments:
-    input_file: the name of the Markdown file to be converted
-    output_file: the name of the output HTML file
+    input_file: The Markdown file to be converted
+    output_file: The name of the output HTML file
 
 Example:
     ./markdown2html.py README.md README.html
 """
 
 import argparse
+import hashlib
 import pathlib
 import re
 import sys
 
 
 def convert_md_to_html(input_file, output_file):
-    """
-    Converts markdown file to HTML file.
-    """
-    # Read the contents of the input file
+    """Convert Markdown to HTML."""
     with open(input_file, encoding='utf-8') as f:
         md_content = f.readlines()
 
     html_content = []
     in_list = False
     for line in md_content:
-        # Check if the line is a heading
+        # Handle headers
         match = re.match(r'^(#{1,6}) (.*)', line)
         if match:
             h_level = len(match.group(1))
             h_content = match.group(2).strip()
             html_content.append(f'<h{h_level}>{h_content}</h{h_level}>\n')
             continue
-        
-        # Check for unordered list items
+
+        # Handle unordered list items
         if re.match(r'^\- (.*)', line):
             if not in_list:
                 html_content.append('<ul>\n')
                 in_list = True
             li_content = re.sub(r'^\- (.*)', r'<li>\1</li>', line).strip()
-            li_content = parse_bold_and_italic(li_content)
+            li_content = parse_bold_italic(li_content)
             html_content.append(f'{li_content}\n')
             continue
-        
+
         # Check for ordered list items
         if re.match(r'^\* (.*)', line):
             if not in_list:
                 html_content.append('<ol>\n')
                 in_list = True
             li_content = re.sub(r'^\* (.*)', r'<li>\1</li>', line).strip()
-            li_content = parse_bold_and_italic(li_content)
+            li_content = parse_bold_italic(li_content)
             html_content.append(f'{li_content}\n')
             continue
 
-        # If we were in a list and encounter a non-list line, close the list
+        # Close the list if we encountered a non-list line
         if in_list:
-            html_content.append('</ul>\n' if line.startswith('- ') else '</ol>\n')
+            html_content.append('</ul>\n')
             in_list = False
 
         # Handle paragraphs
         if line.strip():
             paragraph = f'<p>{line.strip()}</p>\n'
-            paragraph = parse_bold_and_italic(paragraph)
+            paragraph = parse_bold_italic(paragraph)
+            paragraph = parse_custom_syntax(paragraph)
             html_content.append(paragraph)
         else:
-            # If it's an empty line, add a line break for separation
             html_content.append('<br/>\n')
 
-    # If we end with an open list, close it
+    # Close any open list
     if in_list:
-        html_content.append('</ul>\n' if re.match(r'^\- ', md_content[-1]) else '</ol>\n')
+        html_content.append('</ul>\n')
 
-    # Write the HTML content to the output file
+    # Write HTML content to the output file
     with open(output_file, 'w', encoding='utf-8') as f:
         f.writelines(html_content)
 
 
-def parse_bold_and_italic(text):
-    """
-    Converts Markdown bold and italic syntax to HTML.
-    """
+def parse_bold_italic(text):
+    """Convert Markdown bold and italic syntax to HTML."""
     # Convert bold syntax
     text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
     # Convert italic syntax
     text = re.sub(r'__(.+?)__', r'<em>\1</em>', text)
     return text
+
+
+def parse_custom_syntax(text):
+    """Convert custom Markdown syntax to HTML."""
+    # Convert [[text]] to MD5 hash
+    text = re.sub(r'\[\[(.+?)\]\]', lambda match: md5_hash(match.group(1)), text)
+
+    # Remove all 'c' (case insensitive) from ((text))
+    text = re.sub(r'\(\((.+?)\)\)', lambda match: remove_char(match.group(1), 'c'), text)
+
+    return text
+
+
+def md5_hash(text):
+    """Return the MD5 hash of the given text in lowercase."""
+    return hashlib.md5(text.encode('utf-8')).hexdigest()
+
+
+def remove_char(text, char):
+    """Return the text with all occurrences of char removed."""
+    return text.replace(char, '').replace(char.upper(), '')
 
 
 if __name__ == '__main__':
